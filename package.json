@@ -1,0 +1,17 @@
+{
+  "name": "grocery-price-comparison",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "scrape": "node src/scrape.js",
+    "scrape:all": "node src/scrape-all.js",
+    "scrape:watch": "node src/watch.js",
+    "analyze": "node src/analyze.js",
+    "catalog": "node src/build-catalog.js",
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "playwright": "^1.55.1"
+  }
+}

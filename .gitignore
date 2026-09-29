@@ -1,0 +1,11 @@
+node_modules/
+tools/
+node-v*.zip
+data/
+logs/
+reports/
+deploy-site/
+.sites-runtime/
+
+# Local hosting configuration
+.openai/
