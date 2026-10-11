@@ -87,3 +87,27 @@ Ket qua:
 Sua `config/sources.json` de them danh muc, vi du thit, hai san, sua, rau cu.
 
 Luu y: cac website ban le co the thay doi HTML, API, hoac chan truy cap tu dong. Neu crawler khong lay duoc du lieu, can cap nhat selector/API trong `src/scrapers`.
+
+## SQL Server và phân tích tự động
+
+Yêu cầu Node.js 24.15 trở lên. SQL Server được cấu hình trong config/sqlserver.json: server localhost, database ADY201m, Windows Authentication. Bảng dữ liệu: dbo.PriceObservations; dữ liệu CSV cũ được nhập một lần, chống trùng theo siêu thị, sản phẩm và thời điểm. CSV vẫn được xuất để sử dụng trong Excel.
+
+- npm run pipeline: cào toàn bộ danh mục phát hiện được → lưu SQL Server → phân tích → cập nhật catalog và analytics.json.
+- npm run scrape:watch: chạy ngay rồi lặp mỗi 60 phút; mỗi lần chỉ có một chu kỳ.
+- npm run analyze: phân tích lịch sử trong SQL.
+- npm start: mở http://localhost:4173/analytics.html để xem bảng, biểu đồ nhóm hàng, lịch sử giá và gợi ý mua.
+- SCRAPE_SCOPE=configured: chỉ cào các URL trong config/sources.json. Mặc định pipeline phát hiện toàn bộ danh mục.
+
+Giá chỉ được ghép giữa hai siêu thị khi tên chuẩn hóa và khối lượng/dung tích giống nhau. Sản phẩm thiếu quy cách được giữ riêng. Giá trung bình nhóm hàng có thể dựa trên danh mục khác nhau. Gợi ý chưa tính phí giao hàng. Nhiều quan sát cùng một thời điểm không đủ để kết luận xu hướng.
+
+Tác vụ Windows ADY201m-Hourly-Prices chạy Node trực tiếp mỗi giờ. scripts/hourly.ps1 cũng có thể chạy thủ công. Máy cần bật và có mạng; tác vụ chạy theo tài khoản đăng nhập. Log tác vụ: logs/scrape.log; script thủ công: logs/hourly.log. Nếu chương trình bị tắt đột ngột, kiểm tra tiến trình trong data/pipeline.lock trước khi xóa file khóa để chạy lại.
+
+Nếu sitemap lỗi, hệ thống dùng danh mục từ lịch sử SQL, cache hoặc config. So sánh giữa hai siêu thị yêu cầu thời điểm giá cách nhau không quá 90 phút.
+
+Mở SQL Server Management Studio: Server name localhost, Windows Authentication → Databases → ADY201m → Tables → dbo.PriceObservations → Select Top 1000 Rows. Có thể dùng scripts/view-prices.sql. File data/prices.sqlite chỉ là bản cũ để bảo toàn lịch sử; ứng dụng không ghi hay đọc file này nữa. npm run db:migrate chỉ dùng một lần để chuyển dữ liệu cũ, có kiểm tra từng bản ghi.
+
+## Tài liệu dự án
+
+[Tài liệu Word mô tả dự án và hướng dẫn vận hành](docs/ADY201m_Tai_lieu_du_an.docx)
+
+[GitHub Projects ADY201m](https://github.com/users/quangfii/projects/1) dùng theo dõi công việc và hướng phát triển.

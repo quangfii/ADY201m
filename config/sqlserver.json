@@ -1,0 +1,5 @@
+{
+  "server": "localhost",
+  "database": "ADY201m",
+  "sqlcmd": "C:\\Program Files\\Microsoft SQL Server\\Client SDK\\ODBC\\170\\Tools\\Binn\\SQLCMD.EXE"
+}

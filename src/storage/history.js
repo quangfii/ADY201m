@@ -1,6 +1,7 @@
 import { appendFile, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { ensureDir, exists } from "../utils/fs.js";
+import { hasImported, markImported, saveObservations, sqlHistory } from './database.js';
 
 export const HISTORY_PATH = path.resolve("data", "processed", "price_history.csv");
 
@@ -80,6 +81,8 @@ function parseCsv(csv) {
 }
 
 export async function appendHistory(products) {
+  await readHistory();
+  saveObservations(products);
   await ensureDir(path.dirname(HISTORY_PATH));
   const hasFile = await exists(HISTORY_PATH);
   const rows = products.map((product) => {
@@ -106,9 +109,11 @@ export async function appendHistory(products) {
 }
 
 export async function readHistory() {
-  if (!(await exists(HISTORY_PATH))) return [];
-  const csv = await readFile(HISTORY_PATH, "utf8");
-  return parseCsv(csv);
+  if (!hasImported()) {
+    if (await exists(HISTORY_PATH)) saveObservations(parseCsv(await readFile(HISTORY_PATH, 'utf8')));
+    markImported();
+  }
+  return sqlHistory();
 }
 
 export async function writeCsv(filePath, rows) {

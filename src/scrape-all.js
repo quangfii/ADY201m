@@ -2,8 +2,8 @@ import path from "node:path";
 import { chromium } from "playwright";
 import { scrapeBachHoaXanh } from "./scrapers/bachhoaxanh.js";
 import { scrapeWinmart } from "./scrapers/winmart.js";
-import { appendHistory } from "./storage/history.js";
-import { writeJson } from "./utils/fs.js";
+import { appendHistory, readHistory } from "./storage/history.js";
+import { writeJson, readJson } from "./utils/fs.js";
 import { log } from "./utils/logger.js";
 
 const MAX_CATEGORIES = Number(process.env.MAX_CATEGORIES || 0);
@@ -51,7 +51,19 @@ const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({ locale: "vi-VN" });
 try {
   const discoveryPage = await context.newPage();
-  const [winmart, bachhoaxanh] = await Promise.all([discoverWinmart(discoveryPage), discoverBachHoaXanh()]);
+  const results = await Promise.allSettled([discoverWinmart(discoveryPage), discoverBachHoaXanh()]);
+  const configured = await readJson(path.resolve('config', 'sources.json'), {});
+  const cached = await readJson(path.resolve('data', 'discovered_sources.json'), {});
+  const previous = await readHistory();
+  const categories = {};
+  for (const [index, store] of ['winmart', 'bachhoaxanh'].entries()) {
+    const result = results[index];
+    const historical = [...new Map(previous.filter(row => row.supermarket === store && row.source_url).map(row => [row.source_url, {category: row.category, url: row.source_url}])).values()];
+    categories[store] = result.status === 'fulfilled' && result.value.length ? result.value : historical.length ? historical : cached[store] || configured[store] || [];
+    if (result.status === 'rejected') await log('Loi phat hien danh muc, dung danh muc du phong', {supermarket: store, error: result.reason.message, categories: categories[store].length});
+  }
+  await writeJson(path.resolve('data', 'discovered_sources.json'), categories);
+  const {winmart, bachhoaxanh} = categories;
   await discoveryPage.close();
   let sources = [
     ...winmart.map((item) => ({ ...item, supermarket: "winmart" })),
@@ -69,6 +81,7 @@ try {
     if (product.name && product.actual_price && !unique.has(key)) unique.set(key, product);
   }
   const result = [...unique.values()];
+  if (!result.length) throw new Error('Khong thu duoc san pham; khong tao bao cao moi tu du lieu cu.');
   if (result.length) await appendHistory(result);
   await writeJson(path.resolve("data", "raw", collectedAt.slice(0, 10), `all-${Date.now()}.json`), result);
   await log("Hoan tat cao toan bo danh muc", { count: result.length });

@@ -1,0 +1,45 @@
+import { chromium } from "playwright";
+
+const browser = await chromium.launch({ headless: true });
+const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+await page.goto("http://127.0.0.1:4174/", { waitUntil: "networkidle" });
+await page.evaluate(() => localStorage.removeItem("gia-tot-chat-history-v1"));
+await page.reload({ waitUntil: "networkidle" });
+await page.waitForSelector('#chatPanel:not([hidden])');
+await page.fill("#chatInput", "Trong thực đơn của tôi có yến mạch, vì giá khá đắt bạn có thể gợi ý món khác được không?");
+await page.click('#chatForm button[type="submit"]');
+await page.waitForTimeout(500);
+const chatReply = await page.locator(".chat-message.agent").last().innerText();
+await page.screenshot({ path: "reports/chat-desktop.png", fullPage: false });
+await page.click("#closeChat");
+await page.click('[data-view="nutrition"]');
+await page.fill('[name="age"]', "28");
+await page.selectOption('[name="sex"]', "female");
+await page.fill('[name="height"]', "160");
+await page.fill('[name="weight"]', "58");
+await page.selectOption('[name="activity"]', "1.375");
+await page.selectOption('[name="goal"]', "maintain");
+await page.selectOption('[name="diet"]', "balanced");
+await page.selectOption('[name="meals"]', "4");
+await page.fill('[name="avoid"]', "tôm");
+await page.click('button[type="submit"]');
+await page.waitForSelector('#planPanel:not([hidden])');
+await page.screenshot({ path: "reports/nutrition-desktop.png", fullPage: true });
+const summary = await page.locator("#planPanel").innerText();
+const stored = await page.evaluate(() => Boolean(localStorage.getItem("gia-tot-nutrition-profile-v1")));
+await page.click('[data-view="family"]');
+await page.fill('#familyForm [name="adults"]', "2");
+await page.fill('#familyForm [name="children"]', "1");
+await page.fill('#familyForm [name="seniors"]', "1");
+await page.click('#familyForm button[type="submit"]');
+await page.waitForSelector('#familyPlanPanel:not([hidden])');
+const familySummary=await page.locator("#familyPlanPanel").innerText();
+await page.screenshot({ path: "reports/family-desktop.png", fullPage: true });
+
+const mobile = await browser.newPage({ viewport: { width: 390, height: 844 } });
+await mobile.goto("http://127.0.0.1:4174/", { waitUntil: "networkidle" });
+await mobile.click('[data-view="nutrition"]');
+await mobile.screenshot({ path: "reports/nutrition-mobile.png", fullPage: true });
+
+console.log(JSON.stringify({ stored, personalHasSevenDays: (summary.match(/Thứ|Chủ nhật/g) || []).length >= 7, familyHasSevenDays:(familySummary.match(/Thứ|Chủ nhật/g)||[]).length>=7, familySize: await page.locator("#familySize").innerText(), chatReply, familySummary: familySummary.slice(0, 350) }, null, 2));
+await browser.close();

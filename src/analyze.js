@@ -1,9 +1,11 @@
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { readHistory, writeCsv } from "./storage/history.js";
 import { readJson, writeJson } from "./utils/fs.js";
 import { normalizeText } from "./utils/price.js";
 
 function toNumber(value) {
+  if (value === '' || value === null || value === undefined) return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
 }
@@ -18,32 +20,43 @@ function isValidObservation(row) {
   return true;
 }
 
+function comparisonKey(row) {
+  const text = [row.size, row.name, row.product_url].join(' ');
+  const size = text.match(/(\d+(?:[.,]\d+)?)\s*(kg|g|ml|l)\b/i);
+  if (!size) return 'unverified|' + row.supermarket + '|' + (row.product_id || row.product_url || row.name);
+  const unit = size[2].toLowerCase();
+  const quantity = Number(size[1].replace(',', '.')) * (unit === 'kg' || unit === 'l' ? 1000 : 1);
+  const name = normalizeText(row.name).replace(/\b\d+(?: \d+)?\s*(kg|g|ml|l)\b/g, '').trim();
+  return name + '|' + quantity + (unit === 'kg' || unit === 'g' ? 'g' : 'ml');
+}
+
 function latestRows(rows) {
   const byStoreProduct = new Map();
   for (const row of rows) {
-    const key = `${row.supermarket}|${row.match_key || normalizeText(row.name)}`;
+    const key = `${row.supermarket}|${row.product_id || row.product_url || row.match_key || normalizeText(row.name)}`;
     const previous = byStoreProduct.get(key);
     if (!previous || row.collected_at > previous.collected_at) byStoreProduct.set(key, row);
   }
   return [...byStoreProduct.values()];
 }
 
-function compareProducts(rows) {
+export function compareProducts(rows) {
   const groups = new Map();
   for (const row of latestRows(rows)) {
-    const key = row.match_key || normalizeText(`${row.name} ${row.size}`);
+    const key = comparisonKey(row);
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(row);
   }
 
   return [...groups.entries()]
     .map(([matchKey, items]) => {
-      const winmart = items.find((item) => item.supermarket === "winmart");
-      const bachhoaxanh = items.find((item) => item.supermarket === "bachhoaxanh");
+      const winmart = items.filter(item => item.supermarket === 'winmart').sort((a,b) => Number(a.actual_price)-Number(b.actual_price))[0];
+      const bachhoaxanh = items.filter(item => item.supermarket === 'bachhoaxanh').sort((a,b) => Number(a.actual_price)-Number(b.actual_price))[0];
       const winmartPrice = toNumber(winmart?.actual_price);
       const bachhoaxanhPrice = toNumber(bachhoaxanh?.actual_price);
+      const aligned = winmart && bachhoaxanh && Math.abs(Date.parse(winmart.collected_at) - Date.parse(bachhoaxanh.collected_at)) <= 90 * 60000;
       const diff =
-        winmartPrice !== null && bachhoaxanhPrice !== null ? bachhoaxanhPrice - winmartPrice : null;
+        aligned && winmartPrice !== null && bachhoaxanhPrice !== null ? bachhoaxanhPrice - winmartPrice : null;
       const cheaper =
         diff === null ? "not_comparable" : diff > 0 ? "winmart" : diff < 0 ? "bachhoaxanh" : "same";
 
@@ -58,6 +71,7 @@ function compareProducts(rows) {
         cheaper_at: cheaper,
         winmart_url: winmart?.product_url || "",
         bachhoaxanh_url: bachhoaxanh?.product_url || ""
+        ,winmart_collected_at: winmart?.collected_at || '', bachhoaxanh_collected_at: bachhoaxanh?.collected_at || ''
       };
     })
     .sort((a, b) => Number(b.absolute_difference || 0) - Number(a.absolute_difference || 0));
@@ -88,7 +102,7 @@ function priceVolatility(rows) {
   for (const row of rows) {
     const price = toNumber(row.actual_price);
     if (price === null) continue;
-    const key = `${row.supermarket}|${row.match_key || normalizeText(row.name)}`;
+    const key = `${row.supermarket}|${row.product_id || row.product_url || row.match_key || normalizeText(row.name)}`;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push({ ...row, price });
   }
@@ -130,7 +144,7 @@ function basketComparison(comparisons, basket) {
   });
 }
 
-async function main() {
+export async function runAnalysis() {
   const rows = await readHistory();
   const validRows = rows.filter(isValidObservation);
   const comparisons = compareProducts(validRows);
@@ -160,10 +174,27 @@ async function main() {
     ]
   };
   await writeJson(path.resolve("reports", "summary.json"), summary);
+  const categoryPrices = [...new Set(validRows.map(row => row.category))].map(category => {
+    const items = latestRows(validRows).filter(row => row.category === category);
+    const result = {category};
+    for (const store of ['winmart', 'bachhoaxanh']) {
+      const prices = items.filter(row => row.supermarket === store).map(row => Number(row.actual_price));
+      result[store] = prices.length ? Math.round(prices.reduce((a,b) => a+b,0)/prices.length) : null;
+      result[`${store}_count`] = prices.length;
+    }
+    return result;
+  });
+  await writeCsv(path.resolve('reports', 'category_prices.csv'), categoryPrices);
+  await writeJson(path.resolve('public', 'analytics.json'), {
+    summary, comparisons, categories: categoryPrices, volatility, basket: basketRows,
+    recommendations: comparable.filter(row => row.cheaper_at !== 'same'),
+    history: validRows.map(row => ({collected_at: row.collected_at, supermarket: row.supermarket, name: row.name, match_key: comparisonKey(row), actual_price: Number(row.actual_price)}))
+  });
   console.log(JSON.stringify(summary, null, 2));
+  return summary;
 }
 
-main().catch((error) => {
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) runAnalysis().catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });

@@ -7,5 +7,17 @@ reports/
 deploy-site/
 .sites-runtime/
 
+# Local deployment copies and generated artifacts
+*-stage/
+*-stage-final/
+site-open/
+docx_render/
+*.tar.gz
+public/analytics.json
+.env
+.env.*
+!.env.example
+*.bak
+
 # Local hosting configuration
 .openai/
