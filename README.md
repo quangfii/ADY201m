@@ -111,3 +111,11 @@ Mở SQL Server Management Studio: Server name localhost, Windows Authentication
 [Tài liệu Word mô tả dự án và hướng dẫn vận hành](docs/ADY201m_Tai_lieu_du_an.docx)
 
 [GitHub Projects ADY201m](https://github.com/users/quangfii/projects/1) dùng theo dõi công việc và hướng phát triển.
+
+## Phân tích giờ nên mua
+
+Mục Giờ nào nên mua trong /analytics.html phân tích 30 ngày gần nhất theo giờ Việt Nam. Dữ liệu được tách theo siêu thị, định danh sản phẩm và quy cách. Mỗi ngày và khung giờ lấy một giá trung vị để các lần cào lặp không làm lệch trọng số.
+
+Xếp hạng dùng giá tương đối so với trung vị cùng ngày, chỉ trên các ngày chung của các giờ so sánh. Cần ít nhất hai khung giờ và ba ngày chung để đưa ra khuyến nghị. Khi chưa đủ, kết quả là tham khảo hoặc chưa đủ dữ liệu. Giá gần như bằng nhau (chênh lệch tương đối dưới 0,5%) không được coi là lợi thế giờ mua. Không suy đoán giá cho giờ chưa có dữ liệu. Dữ liệu quá 48 giờ được đánh dấu cũ.
+
+Báo cáo mới: reports/buying_hour_summary.csv và reports/hourly_product_prices.csv. Lịch cào mỗi giờ tự cập nhật kết quả sau mỗi chu kỳ.

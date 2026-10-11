@@ -1,3 +1,4 @@
+import { renderBuyingHours } from './buying-hours.js';
 const $=id=>document.getElementById(id);
 const money=v=>v===''||v==null?'Chưa có':Number(v).toLocaleString('vi-VN')+' đ';
 const store=v=>({winmart:'WinMart',bachhoaxanh:'Bách Hóa Xanh',same:'Bằng giá',not_comparable:'Chưa đủ giá'}[v]||v);
@@ -5,6 +6,7 @@ function table(target,headers,rows){const t=document.createElement('table');cons
 const ns='http://www.w3.org/2000/svg';function el(tag,attrs={},content){const e=document.createElementNS(ns,tag);Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v));if(content)e.textContent=content;return e}
 function svg(height){const s=el('svg',{viewBox:'0 0 1000 '+height,role:'img'});return s}
 try{const r=await fetch('/analytics.json?t='+Date.now());if(!r.ok)throw Error('Chưa có báo cáo. Hãy chạy npm run analyze.');const data=await r.json();$('status').textContent=data.summary.valid_observations+' quan sát hợp lệ · '+data.summary.comparable_products+' sản phẩm so sánh được · Báo cáo '+new Date(data.summary.generated_at).toLocaleString('vi-VN');
+renderBuyingHours(data.buying_hours);
 function products(){const q=$('search').value.toLocaleLowerCase('vi');table('products',['Sản phẩm','Nhóm','WinMart','Bách Hóa Xanh','Nơi rẻ hơn'],data.comparisons.filter(p=>p.sample_name.toLocaleLowerCase('vi').includes(q)).map(p=>[p.sample_name,p.category,money(p.winmart_price),money(p.bachhoaxanh_price),store(p.cheaper_at)]))}products();$('search').oninput=products;
 table('categories',['Nhóm','WinMart TB','Số SP','BHX TB','Số SP'],data.categories.map(c=>[c.category,money(c.winmart),c.winmart_count,money(c.bachhoaxanh),c.bachhoaxanh_count]));
 const cs=svg(Math.max(100,data.categories.length*65+30));const max=Math.max(1,...data.categories.flatMap(c=>[c.winmart||0,c.bachhoaxanh||0]));data.categories.forEach((c,i)=>{const y=i*65+25;cs.append(el('text',{x:0,y},c.category));['winmart','bachhoaxanh'].forEach((k,j)=>{cs.append(el('rect',{x:260,y:y-15+j*24,width:(c[k]||0)/max*570,height:18,fill:j?'#ea580c':'#15803d'}));cs.append(el('text',{x:840,y:y+j*24},money(c[k])))})});$('categoryChart').replaceChildren(cs);

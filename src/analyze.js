@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { readHistory, writeCsv } from "./storage/history.js";
 import { readJson, writeJson } from "./utils/fs.js";
 import { normalizeText } from "./utils/price.js";
+import { analyzeBuyingHours } from './analysis/buying-hours.js';
 
 function toNumber(value) {
   if (value === '' || value === null || value === undefined) return null;
@@ -152,6 +153,9 @@ export async function runAnalysis() {
   const volatility = priceVolatility(validRows);
   const basket = await readJson(path.resolve("config", "basket.json"), []);
   const basketRows = basketComparison(comparisons, basket);
+  const buyingHours = analyzeBuyingHours(validRows);
+  await writeCsv(path.resolve('reports', 'buying_hour_summary.csv'), buyingHours.products.map(({hours, ...product}) => ({...product, best_hours: product.best_hours.join(';')})));
+  await writeCsv(path.resolve('reports', 'hourly_product_prices.csv'), buyingHours.products.flatMap(product => product.hours.map(hour => ({product_id: product.product_id, name: product.name, supermarket: product.supermarket, size: product.size, ...hour}))));
 
   await writeCsv(path.resolve("reports", "product_price_comparison.csv"), comparisons);
   await writeCsv(path.resolve("reports", "category_price_summary.csv"), categorySummary);
@@ -186,7 +190,7 @@ export async function runAnalysis() {
   });
   await writeCsv(path.resolve('reports', 'category_prices.csv'), categoryPrices);
   await writeJson(path.resolve('public', 'analytics.json'), {
-    summary, comparisons, categories: categoryPrices, volatility, basket: basketRows,
+    summary, comparisons, categories: categoryPrices, volatility, basket: basketRows, buying_hours: buyingHours,
     recommendations: comparable.filter(row => row.cheaper_at !== 'same'),
     history: validRows.map(row => ({collected_at: row.collected_at, supermarket: row.supermarket, name: row.name, match_key: comparisonKey(row), actual_price: Number(row.actual_price)}))
   });
