@@ -1,7 +1,8 @@
 $projectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $projectRoot
-$nodeExecutable = (Get-Command node -ErrorAction Stop).Source
+$pythonExecutable = Join-Path $projectRoot '.venv\Scripts\python.exe'
+if (-not (Test-Path -LiteralPath $pythonExecutable)) { throw 'Create .venv and install requirements.txt first.' }
 $logDirectory = Join-Path $projectRoot 'logs'
 New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
-& $nodeExecutable (Join-Path $projectRoot 'src/pipeline.js') >> (Join-Path $logDirectory 'hourly.log') 2>&1
+& $pythonExecutable -m ady pipeline >> (Join-Path $logDirectory 'hourly.log') 2>&1
 exit $LASTEXITCODE

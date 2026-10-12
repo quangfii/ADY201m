@@ -21,3 +21,6 @@ public/analytics.json
 
 # Local hosting configuration
 .openai/
+.venv/
+__pycache__/
+*.pyc

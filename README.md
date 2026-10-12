@@ -1,121 +1,69 @@
-# Grocery Price Comparison: Bach Hoa Xanh vs WinMart
+# ADY201m so sánh giá bằng Python và SQL Server
 
-Du an theo doi bien dong gia san pham giua Bach Hoa Xanh va WinMart theo thoi gian.
+Dự án thu thập giá WinMart và Bách Hóa Xanh mỗi giờ, lưu lịch sử vào SQL Server và phân tích theo sản phẩm, nhóm hàng, thời gian và giờ mua. Python thực hiện toàn bộ xử lý phía máy chủ; SQL định nghĩa bảng và truy vấn. Giao diện dùng HTML, CSS và JavaScript cho biểu đồ trên trình duyệt.
 
-## Muc tieu
+## Cài đặt Windows
 
-- Cao du lieu gia san pham theo lich lap lai.
-- Luu lai lich su gia de quan sat tang/giam theo thoi diem, khuyen mai.
-- So sanh cung mot san pham giua Bach Hoa Xanh va WinMart.
-- Thong ke gia cao nhat, thap nhat, trung binh, chenhlech.
-- Goi y noi mua phu hop theo san pham hoac gio hang.
-
-## Cau truc du lieu thu thap
-
-Moi dong du lieu gom:
-
-- `collected_at`: thoi diem thu thap
-- `supermarket`: `winmart` hoac `bachhoaxanh`
-- `product_id`: ma san pham neu lay duoc
-- `name`: ten san pham
-- `brand`: thuong hieu neu tach duoc
-- `category`: nhom san pham
-- `size`: khoi luong/dung tich neu tach duoc
-- `original_price`: gia goc
-- `sale_price`: gia khuyen mai neu co
-- `actual_price`: gia thuc te de so sanh
-- `discount_text`: noi dung khuyen mai neu co
-- `product_url`: link san pham
-- `source_url`: trang danh muc da cao
-
-## Cai dat
-
-```bash
-npm install
-npx playwright install chromium
-```
-
-## Cao du lieu mot lan
-
-```bash
-npm run scrape
-```
-
-Du lieu se duoc ghi vao:
-
-- `data/raw/YYYY-MM-DD/*.json`
-- `data/processed/price_history.csv`
-- `logs/scrape.log`
-
-## Theo doi lien tuc
-
-Mac dinh chay moi 60 phut:
-
-```bash
-npm run scrape:watch
-```
-
-Chay moi 30 phut:
-
-```bash
-SCRAPE_INTERVAL_MINUTES=30 npm run scrape:watch
-```
-
-Tren PowerShell:
+Cần Python 3.12 trở lên, SQL Server và sqlcmd ODBC. Mở terminal tại thư mục dự án:
 
 ```powershell
-$env:SCRAPE_INTERVAL_MINUTES=30
-npm run scrape:watch
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+python -m playwright install chromium
 ```
 
-## Phan tich
+Sửa `config/sqlserver.json` cho máy chạy. Mặc định: `localhost`, database `ADY201m`, Windows Authentication. Không lưu mật khẩu trong repository. `sql/schema.sql` tự tạo bảng nếu chưa có; không xóa hay thay dữ liệu hiện tại. `scripts/view-prices.sql` dùng trong SSMS.
 
-```bash
-npm run analyze
+## Chạy
+
+```powershell
+python -m ady pipeline
+python -m ady serve
 ```
 
-Ket qua:
+Mở http://localhost:4174/analytics.html. `pipeline` cào → lưu SQL → phân tích → cập nhật catalog và báo cáo. Không cần Node.js. Server chỉ phục vụ thư mục `public` và mặc định chỉ truy cập từ máy này.
 
-- `reports/product_price_comparison.csv`
-- `reports/category_price_summary.csv`
-- `reports/basket_comparison.csv`
-- `reports/price_volatility.csv`
-- `reports/summary.json`
+Các lệnh khác:
 
-## Tuy chinh nguon cao
+- `python -m ady scrape`: chỉ cào danh mục trong cấu hình và lưu SQL.
+- `python -m ady analyze`: đọc SQL, tạo bảng so sánh, biểu đồ và phân tích giờ mua.
+- `python -m ady catalog`: cập nhật danh mục sản phẩm từ SQL.
+- `python -m ady db-import`: nhập CSV cũ một lần nếu chưa nhập, xuất lịch sử từ SQL.
+- `python -m ady watch`: chạy ngay rồi lặp mỗi 60 phút.
 
-Sua `config/sources.json` de them danh muc, vi du thit, hai san, sua, rau cu.
+## Lịch mỗi giờ
 
-Luu y: cac website ban le co the thay doi HTML, API, hoac chan truy cap tu dong. Neu crawler khong lay duoc du lieu, can cap nhat selector/API trong `src/scrapers`.
+Sau khi cài môi trường, chạy PowerShell:
 
-## SQL Server và phân tích tự động
+```powershell
+.\scripts\install-hourly.ps1
+```
 
-Yêu cầu Node.js 24.15 trở lên. SQL Server được cấu hình trong config/sqlserver.json: server localhost, database ADY201m, Windows Authentication. Bảng dữ liệu: dbo.PriceObservations; dữ liệu CSV cũ được nhập một lần, chống trùng theo siêu thị, sản phẩm và thời điểm. CSV vẫn được xuất để sử dụng trong Excel.
+Tác vụ `ADY201m-Hourly-Prices` gọi `.venv\Scripts\python.exe -m ady pipeline` mỗi giờ, dùng thư mục dự án hiện tại. Có thể truyền `-PythonExecutable` để chọn Python khác. Máy phải bật, có mạng, người dùng đăng nhập và SQL Server hoạt động. Chỉ chọn một cơ chế lịch: Task Scheduler hoặc `watch`.
 
-- npm run pipeline: cào toàn bộ danh mục phát hiện được → lưu SQL Server → phân tích → cập nhật catalog và analytics.json.
-- npm run scrape:watch: chạy ngay rồi lặp mỗi 60 phút; mỗi lần chỉ có một chu kỳ.
-- npm run analyze: phân tích lịch sử trong SQL.
-- npm start: mở http://localhost:4173/analytics.html để xem bảng, biểu đồ nhóm hàng, lịch sử giá và gợi ý mua.
-- SCRAPE_SCOPE=configured: chỉ cào các URL trong config/sources.json. Mặc định pipeline phát hiện toàn bộ danh mục.
+Chu kỳ dùng `data/pipeline.lock` để tránh chạy chồng. Nếu chương trình dừng đột ngột, kiểm tra PID trong file khóa; chỉ xóa khi tiến trình đó đã dừng. Log ở `logs/scrape.log`. Nếu một danh mục lỗi, các danh mục thành công vẫn được lưu. Nếu không lấy được sản phẩm nào, chu kỳ báo lỗi và không tạo báo cáo mới từ dữ liệu cũ.
 
-Giá chỉ được ghép giữa hai siêu thị khi tên chuẩn hóa và khối lượng/dung tích giống nhau. Sản phẩm thiếu quy cách được giữ riêng. Giá trung bình nhóm hàng có thể dựa trên danh mục khác nhau. Gợi ý chưa tính phí giao hàng. Nhiều quan sát cùng một thời điểm không đủ để kết luận xu hướng.
+Mặc định phát hiện toàn bộ danh mục; nếu lỗi dùng lịch sử SQL, cache hoặc cấu hình. Biến môi trường: `SCRAPE_SCOPE=configured`, `MAX_CATEGORIES` (giới hạn cho kiểm tra), `SCRAPE_CONCURRENCY` (1–4), `SCRAPE_INTERVAL_MINUTES` (watch), `PORT`, `HOST`, `SQL_SERVER`, `SQL_DATABASE`.
 
-Tác vụ Windows ADY201m-Hourly-Prices chạy Node trực tiếp mỗi giờ. scripts/hourly.ps1 cũng có thể chạy thủ công. Máy cần bật và có mạng; tác vụ chạy theo tài khoản đăng nhập. Log tác vụ: logs/scrape.log; script thủ công: logs/hourly.log. Nếu chương trình bị tắt đột ngột, kiểm tra tiến trình trong data/pipeline.lock trước khi xóa file khóa để chạy lại.
+## Dữ liệu và phương pháp
 
-Nếu sitemap lỗi, hệ thống dùng danh mục từ lịch sử SQL, cache hoặc config. So sánh giữa hai siêu thị yêu cầu thời điểm giá cách nhau không quá 90 phút.
+`dbo.PriceObservations` giữ thời gian UTC, siêu thị, định danh sản phẩm, tên, quy cách, nhóm hàng, giá và JSON gốc. Khóa SHA256 giữ tương thích với lịch sử cũ, chống trùng theo thời điểm, siêu thị và sản phẩm. Không dùng SQLite. Giá xuất CSV ở `data/processed/price_history.csv`; báo cáo CSV ở `reports/`, dữ liệu biểu đồ ở `public/analytics.json`.
 
-Mở SQL Server Management Studio: Server name localhost, Windows Authentication → Databases → ADY201m → Tables → dbo.PriceObservations → Select Top 1000 Rows. Có thể dùng scripts/view-prices.sql. File data/prices.sqlite chỉ là bản cũ để bảo toàn lịch sử; ứng dụng không ghi hay đọc file này nữa. npm run db:migrate chỉ dùng một lần để chuyển dữ liệu cũ, có kiểm tra từng bản ghi.
+So sánh từng sản phẩm dùng giá mới nhất, tên chuẩn hóa và quy cách quy về g/ml. Thiếu quy cách giữ riêng. Hai siêu thị chỉ được so sánh khi thời điểm cách nhau không quá 90 phút. Trung bình nhóm hàng có thể dựa trên danh mục khác nhau. Ghép tên cần kiểm tra nhãn hiệu, số lượng và biến thể. Gợi ý chưa tính phí giao hàng.
 
-## Tài liệu dự án
+Giờ mua được phân tích trong 30 ngày gần nhất theo UTC+7, riêng từng siêu thị, sản phẩm và quy cách. Mỗi ngày và giờ lấy một trung vị. Xếp hạng dùng giá tương đối trên các ngày chung để tránh nhầm biến động theo ngày với ảnh hưởng giờ. Cần ít nhất hai giờ và ba ngày chung để khuyến nghị; ít hơn chỉ tham khảo. Chênh dưới 0,5% không chọn giờ ưu tiên. Dữ liệu quá 48 giờ được đánh dấu cũ. Không suy đoán giờ chưa thu thập và không bảo đảm giá tương lai.
 
-[Tài liệu Word mô tả dự án và hướng dẫn vận hành](docs/ADY201m_Tai_lieu_du_an.docx)
+## Kiểm thử
 
-[GitHub Projects ADY201m](https://github.com/users/quangfii/projects/1) dùng theo dõi công việc và hướng phát triển.
+```powershell
+python -m unittest discover -s tests -p "test_*.py" -v
+```
 
-## Phân tích giờ nên mua
+Kiểm tra chống trùng và khóa tương thích, quy cách và độ lệch thời gian, giờ Việt Nam, dữ liệu chưa đủ, xu hướng theo ngày và trích xuất sản phẩm từ HTML/JSON-LD.
 
-Mục Giờ nào nên mua trong /analytics.html phân tích 30 ngày gần nhất theo giờ Việt Nam. Dữ liệu được tách theo siêu thị, định danh sản phẩm và quy cách. Mỗi ngày và khung giờ lấy một giá trung vị để các lần cào lặp không làm lệch trọng số.
+## Tài liệu
 
-Xếp hạng dùng giá tương đối so với trung vị cùng ngày, chỉ trên các ngày chung của các giờ so sánh. Cần ít nhất hai khung giờ và ba ngày chung để đưa ra khuyến nghị. Khi chưa đủ, kết quả là tham khảo hoặc chưa đủ dữ liệu. Giá gần như bằng nhau (chênh lệch tương đối dưới 0,5%) không được coi là lợi thế giờ mua. Không suy đoán giá cho giờ chưa có dữ liệu. Dữ liệu quá 48 giờ được đánh dấu cũ.
+[Tài liệu dự án](docs/ADY201m_Tai_lieu_du_an.docx) • [GitHub Projects](https://github.com/users/quangfii/projects/1)
 
-Báo cáo mới: reports/buying_hour_summary.csv và reports/hourly_product_prices.csv. Lịch cào mỗi giờ tự cập nhật kết quả sau mỗi chu kỳ.
+Cài `requirements-docs.txt` nếu cần chạy `docs/build_project_doc.py`. Database, dataset, log, môi trường Python và cấu hình triển khai riêng tư giữ trên máy, không đưa lên GitHub. Lịch Windows cần cài lại khi clone sang máy khác.
